@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Local config & secrets (never commit these)
+config.json
+.env
+.env.*
+
+# Model weights and local OCR assets
+model/
+models/
+*.onnx
+*.pt
+*.pth
+
+# Generated reports / sample outputs
+output/
+*.xlsx
+*.xls
+*.csv
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Samples: keep the folder, ignore real screenshots
+samples/*
+!samples/.gitkeep

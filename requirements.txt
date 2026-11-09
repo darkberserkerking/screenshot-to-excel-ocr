@@ -1,0 +1,3 @@
+# Core dependencies only. The pipeline and the --demo mode need nothing else.
+openpyxl>=3.1
+Pillow>=10.0

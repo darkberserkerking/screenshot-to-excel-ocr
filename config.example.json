@@ -1,0 +1,18 @@
+{
+  "columns": [
+    { "name": "编号", "type": "str",  "required": true,  "pattern": "^[A-Za-z0-9_-]{2,32}$" },
+    { "name": "名称", "type": "str",  "required": true,  "pattern": "^.{1,40}$" },
+    { "name": "数量", "type": "int",  "required": false, "pattern": "^-?[0-9,，.]+$" },
+    { "name": "日期", "type": "date", "required": false, "pattern": "^[0-9]{4}[-/年][0-9]{1,2}[-/月][0-9]{1,2}" },
+    { "name": "备注", "type": "str",  "required": false, "pattern": "" }
+  ],
+  "ocr": {
+    "engine": "dummy",
+    "scales": [1, 2, 3],
+    "min_score": 0.5
+  },
+  "row_tolerance_ratio": 0.7,
+  "low_confidence_threshold": 0.85,
+  "strip_emoji": true,
+  "normalize_fullwidth": true
+}
