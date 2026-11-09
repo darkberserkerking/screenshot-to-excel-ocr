@@ -1,3 +1,5 @@
-# Core dependencies only. The pipeline and the --demo mode need nothing else.
+# Core dependencies. The pipeline and the --demo mode need nothing else.
 openpyxl>=3.1
 Pillow>=10.0
+# GUI: light card theme
+customtkinter>=5.2
