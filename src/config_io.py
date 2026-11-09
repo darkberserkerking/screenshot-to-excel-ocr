@@ -15,6 +15,7 @@ LOCAL_PATH = os.path.join(ROOT, "config.json")
 
 TYPES = ("str", "int", "float", "date")
 ENGINES = ("dummy", "rapidocr", "maaocr")
+MODES = ("table", "text_dump")
 
 DEFAULTS: Dict[str, Any] = {
     "ocr": {
@@ -26,6 +27,8 @@ DEFAULTS: Dict[str, Any] = {
         "module_dir": "",
         "model_dir": "",
     },
+    "output": {"mode": "table"},
+    "dump": {"dedup_grid": 12.0},
     "row_tolerance_ratio": 0.7,
     "col_tolerance_ratio": 0.9,
     "low_confidence_threshold": 0.85,
@@ -62,11 +65,17 @@ def normalize(raw: Any = None) -> Dict[str, Any]:
     raw = raw or {}
     config = {k: copy.deepcopy(v) for k, v in DEFAULTS.items()}
     for key, value in raw.items():
-        if key not in ("ocr", "columns"):
+        if key == "columns":
+            continue
+        if key in config and isinstance(config[key], dict):
+            if isinstance(value, dict):
+                config[key].update(value)
+        else:
             config[key] = value
-    config["ocr"].update(raw.get("ocr") or {})
     if config["ocr"].get("engine") not in ENGINES:
         config["ocr"]["engine"] = "dummy"
+    if config["output"].get("mode") not in MODES:
+        config["output"]["mode"] = "table"
     config["columns"] = [_column(c) for c in (raw.get("columns") or [])]
     return config
 
@@ -82,8 +91,7 @@ def example_config() -> Dict[str, Any]:
 
 def save_config(config: Dict[str, Any], path: str) -> str:
     """Write a normalised config as UTF-8 JSON and return the path."""
-    parent = os.path.dirname(os.path.abspath(path))
-    os.makedirs(parent, exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(normalize(config), handle, ensure_ascii=False, indent=2)
     return path
@@ -96,7 +104,7 @@ def validate(config: Dict[str, Any]) -> List[str]:
 
     columns = cfg["columns"]
     if not columns:
-        errors.append("至少需要在「列定义」里添加一列")
+        errors.append("至少需要在「列定义」里添加一列（仅表格提取模式需要）")
     names = [c["name"] for c in columns]
     if len(names) != len(set(names)):
         errors.append("列名不能重复")
@@ -122,6 +130,12 @@ def validate(config: Dict[str, Any]) -> List[str]:
             continue
         if value < 0:
             errors.append(f"{label} 不能为负数")
+
+    try:
+        if float(cfg["dump"]["dedup_grid"]) <= 0:
+            errors.append("去重网格必须大于 0")
+    except (TypeError, ValueError, KeyError):
+        errors.append("去重网格必须是数字")
 
     if cfg["ocr"]["engine"] == "maaocr" and not cfg["ocr"].get("module_dir"):
         errors.append("使用 maaocr 引擎时，必须填写「模块目录」")

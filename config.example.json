@@ -13,6 +13,12 @@
     "module_dir": "",
     "model_dir": ""
   },
+  "output": {
+    "mode": "table"
+  },
+  "dump": {
+    "dedup_grid": 12
+  },
   "row_tolerance_ratio": 0.7,
   "col_tolerance_ratio": 0.9,
   "low_confidence_threshold": 0.85,

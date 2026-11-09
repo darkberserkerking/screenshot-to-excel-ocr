@@ -2,8 +2,9 @@
 """Full graphical front-end: every setting is editable without a command line.
 
 Three tabs (Run / Recognition / Columns) plus a configuration bar for
-load / save / save-as / restore-example. Long work runs on a worker thread and
-results are delivered through a queue back to the main thread.
+load / save / save-as / restore-example. Two output modes are supported:
+structured table extraction, and a text list with coordinates. Long work runs
+on a worker thread and results are delivered through a queue to the main thread.
 
 Launch::
 
@@ -22,6 +23,7 @@ from tkinter import filedialog, messagebox, ttk
 from src.config_io import (ENGINES, EXAMPLE_PATH, LOCAL_PATH, TYPES,
                            example_config, load_config, normalize,
                            save_config, validate)
+from src.dump import run_text_dump
 from src.pipeline import run, run_demo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -31,6 +33,10 @@ DEMO_OUTPUT = os.path.join(HERE, "output", "demo_report.xlsx")
 
 COL_FIELDS = ("name", "type", "pattern", "required", "index", "width")
 COL_HEADINGS = ("列名", "类型", "正则校验", "必填", "绑定位置", "列宽")
+
+MODE_LABELS = ("表格提取", "文本清单")
+MODE_TO_VALUE = {"表格提取": "table", "文本清单": "text_dump"}
+VALUE_TO_MODE = {value: label for label, value in MODE_TO_VALUE.items()}
 
 
 class App:
@@ -95,9 +101,23 @@ class App:
         self._path_row(paths, 0, "图片文件夹", self.input_var, self._pick_input)
         self._path_row(paths, 1, "输出 xlsx", self.output_var, self._pick_output)
 
+        ttk.Label(paths, text="输出模式").grid(row=2, column=0, sticky="w", padx=(2, 8), pady=6)
+        self.mode_var = tk.StringVar(value="表格提取")
+        ttk.Combobox(paths, textvariable=self.mode_var, state="readonly",
+                     values=MODE_LABELS, width=24).grid(row=2, column=1, sticky="w", pady=6)
+        ttk.Label(paths, text="表格提取=按列定义成表；文本清单=每条文字 + 坐标",
+                  foreground="#6b7280").grid(row=2, column=2, sticky="w", padx=6)
+
+        ttk.Label(paths, text="去重网格(px)").grid(row=3, column=0, sticky="w", padx=(2, 8), pady=6)
+        self.dedup_var = tk.StringVar(value="12")
+        ttk.Entry(paths, textvariable=self.dedup_var, width=26).grid(
+            row=3, column=1, sticky="w", pady=6)
+        ttk.Label(paths, text="仅文本清单模式：多尺度重复框的合并半径",
+                  foreground="#6b7280").grid(row=3, column=2, sticky="w", padx=6)
+
         self.demo_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
-            parent, text="演示模式（用内置合成数据跑通流程，忽略下方 OCR 引擎设置）",
+            parent, text="演示模式（用内置合成数据跑通流程，忽略输出模式与 OCR 引擎设置）",
             variable=self.demo_var).pack(anchor="w", pady=(0, 8))
 
         buttons = ttk.Frame(parent)
@@ -160,7 +180,7 @@ class App:
         ttk.Label(paths, text="路径在界面里填写即可，程序内部设置，不需要命令行；不要提交到仓库",
                   foreground="#6b7280").grid(row=2, column=0, columnspan=3, sticky="w", padx=4, pady=(6, 0))
 
-        cluster = ttk.LabelFrame(parent, text=" 聚类与复核 ", padding=8)
+        cluster = ttk.LabelFrame(parent, text=" 聚类与复核（表格提取模式） ", padding=8)
         cluster.grid(row=4, column=0, columnspan=3, sticky="ew", pady=4)
         for i, (label, var, hint) in enumerate((
             ("行聚类容差", self.row_tol_var, "相邻框垂直间距中位数 × 系数"),
@@ -179,7 +199,7 @@ class App:
                         variable=self.fullwidth_var).pack(side="left")
 
     def _build_columns(self, parent):
-        ttk.Label(parent, text="行的顺序就是 Excel 的列顺序；双击某行可编辑",
+        ttk.Label(parent, text="仅「表格提取」模式需要；行的顺序就是 Excel 的列顺序；双击某行可编辑",
                   foreground="#6b7280").pack(anchor="w", pady=(0, 8))
 
         frame = ttk.Frame(parent)
@@ -351,6 +371,8 @@ class App:
         self.min_score_var.set(str(ocr["min_score"]))
         self.module_dir_var.set(ocr.get("module_dir", ""))
         self.model_dir_var.set(ocr.get("model_dir", ""))
+        self.mode_var.set(VALUE_TO_MODE.get(cfg["output"]["mode"], "表格提取"))
+        self.dedup_var.set(str(cfg["dump"]["dedup_grid"]))
         self.row_tol_var.set(str(cfg["row_tolerance_ratio"]))
         self.col_tol_var.set(str(cfg["col_tolerance_ratio"]))
         self.low_conf_var.set(str(cfg["low_confidence_threshold"]))
@@ -380,12 +402,22 @@ class App:
                 "module_dir": self.module_dir_var.get().strip(),
                 "model_dir": self.model_dir_var.get().strip(),
             },
+            "output": {"mode": MODE_TO_VALUE.get(self.mode_var.get(), "table")},
+            "dump": {"dedup_grid": self._number(self.dedup_var, "去重网格")},
             "row_tolerance_ratio": self._number(self.row_tol_var, "行聚类容差"),
             "col_tolerance_ratio": self._number(self.col_tol_var, "列聚类容差"),
             "low_confidence_threshold": self._number(self.low_conf_var, "低置信阈值"),
             "strip_emoji": bool(self.strip_emoji_var.get()),
             "normalize_fullwidth": bool(self.fullwidth_var.get()),
         })
+
+    @staticmethod
+    def _problems(cfg, ignore_columns=False):
+        problems = [p for p in validate(cfg) if "模块目录" not in p]
+        if ignore_columns:
+            problems = [p for p in problems
+                        if "列定义" not in p and "列名" not in p]
+        return problems
 
     def _load_config(self, path=None, initial=False):
         if not path:
@@ -411,9 +443,7 @@ class App:
         except ValueError as exc:
             messagebox.showerror("设置有误", str(exc))
             return
-        # A missing maaocr path is allowed while simply editing a config;
-        # it is checked again when an actual run starts.
-        problems = [p for p in validate(cfg) if "模块目录" not in p]
+        problems = self._problems(cfg, ignore_columns=True)
         if problems:
             messagebox.showerror("设置有误", "\n".join(problems))
             return
@@ -468,9 +498,10 @@ class App:
             return
 
         demo = bool(self.demo_var.get())
-        problems = validate(cfg) if not demo else []
+        text_dump_mode = cfg["output"]["mode"] == "text_dump"
+        problems = self._problems(cfg, ignore_columns=text_dump_mode) if not demo else []
         if demo and not cfg["columns"]:
-            problems = ["至少需要一列"]
+            problems = ["演示模式至少需要一列"]
         if problems:
             messagebox.showerror("设置有误", "\n".join(problems))
             return
@@ -501,7 +532,8 @@ class App:
         self.start_btn.config(state="disabled")
         self.status.set("处理中…")
         engine_label = "演示模式(dummy)" if demo else cfg["ocr"]["engine"]
-        self._append(f"开始处理… 引擎={engine_label} 尺度={cfg['ocr']['scales']}")
+        mode_label = "演示" if demo else VALUE_TO_MODE.get(cfg["output"]["mode"], "表格提取")
+        self._append(f"开始处理… 引擎={engine_label} 模式={mode_label} 尺度={cfg['ocr']['scales']}")
         threading.Thread(target=self._worker, args=(params,), daemon=True).start()
 
     def _worker(self, params):
@@ -510,6 +542,11 @@ class App:
             if params["demo"]:
                 output = params["demo_output"]
                 stats = run_demo(output, cfg, cfg["ocr"]["scales"])
+            elif cfg["output"]["mode"] == "text_dump":
+                output = params["output"]
+                stats = run_text_dump(params["input"], output, cfg,
+                                      cfg["ocr"]["engine"], cfg["ocr"]["scales"],
+                                      cfg["dump"]["dedup_grid"])
             else:
                 output = params["output"]
                 stats = run(params["input"], output, cfg,
