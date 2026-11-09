@@ -1,11 +1,14 @@
-# Optional OCR backends. Install only the one you plan to use.
+# No extra install is needed for the built-in RapidOCR backend; its
+# dependencies come with rapidocr-onnxruntime in requirements.txt.
 #
-# Backend "rapidocr": pure pip install, no external model files needed.
-rapidocr-onnxruntime>=1.3
-numpy>=1.24
+# The following are only relevant if you plug in a custom MaaOCR-style module
+# that needs these libraries loaded in the same environment:
 #
-# Backend "maaocr": bring your own OCR module and model directory.
-# Configure via environment variables instead of editing source code:
-#   OCR_MODULE_DIR  -> directory containing maa_ocr.py
-#   OCR_MODEL_DIR   -> directory containing the OCR model files
-# The module must expose: MaaOCR(model_dir=...).recognize(image)
+#   onnxruntime>=1.7
+#   opencv-python>=4.5
+#   numpy>=1.19
+#   pyclipper>=1.2
+#   shapely>=1.7
+#
+# That module and its model weights are supplied by you at runtime under
+# engines/maaocr/ (see engines/README.md); they are not shipped here.

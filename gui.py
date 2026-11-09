@@ -30,10 +30,11 @@ except ImportError as exc:  # pragma: no cover - depends on local install
         "customtkinter not installed. Run: pip install -r requirements.txt"
     ) from exc
 
-from src.config_io import (ENGINES, EXAMPLE_PATH, LOCAL_PATH, TYPES,
+from src.config_io import (APP_DIR, EXAMPLE_PATH, LOCAL_PATH, TYPES,
                            example_config, load_config, normalize,
                            save_config, validate)
 from src.dump import run_text_dump
+from src.ocr import available_engines, engine_names
 from src.pipeline import run, run_demo
 
 # Frozen (PyInstaller) builds must keep user files next to the .exe, not in
@@ -284,7 +285,8 @@ class App:
         row = 0
         self._label(parent, "OCR 引擎", 11, False, TEXT).grid(
             row=row, column=0, sticky="w", padx=(14, 8), pady=6)
-        ctk.CTkComboBox(parent, variable=self.engine_var, values=list(ENGINES),
+        ctk.CTkComboBox(parent, variable=self.engine_var,
+                        values=engine_names(APP_DIR),
                         state="readonly", width=180, height=32, corner_radius=8,
                         fg_color=BG_INPUT, border_width=0, button_color=BG_BTN_HOVER,
                         text_color=TEXT_BRIGHT, font=self.f(11)).grid(
@@ -674,7 +676,10 @@ class App:
                               ("rapidocr_onnxruntime", "RapidOCR 后端")):
             found = importlib.util.find_spec(module) is not None
             lines.append(f"{label}: {'已安装' if found else '未安装'}")
-        lines.append("dummy 后端: 内置（输出合成数据，不识别图片）")
+        lines.append("内置引擎: dummy / rapidocr / maaocr(适配器)")
+        for name, label in available_engines(APP_DIR):
+            if label.startswith("[插件]"):
+                lines.append(f"  已发现插件: {name} — {label}")
         module_dir = self.module_dir_var.get().strip()
         if module_dir:
             lines.append("maaocr 模块文件: " +
@@ -781,8 +786,24 @@ class App:
         self.root.after(120, self._poll)
 
 
+def _ensure_engines_dir():
+    """Place plugin docs/templates next to the exe on first launch."""
+    import shutil
+    from src.config_io import BUNDLE_DIR
+    target = os.path.join(HERE, "engines")
+    os.makedirs(target, exist_ok=True)
+    if os.path.abspath(BUNDLE_DIR) == os.path.abspath(HERE):
+        return  # running from source: templates are already in place
+    for name in ("README.md", "_template.py.example", "_template.json.example"):
+        source = os.path.join(BUNDLE_DIR, "engines", name)
+        destination = os.path.join(target, name)
+        if os.path.isfile(source) and not os.path.exists(destination):
+            shutil.copy2(source, destination)
+
+
 def main():
     try:
+        _ensure_engines_dir()
         root = ctk.CTk()
         App(root)
         root.mainloop()

@@ -17,10 +17,11 @@ class TestConfigIO(unittest.TestCase):
         self.assertEqual(cfg["ocr"]["module_dir"], "")
         self.assertEqual(cfg["ocr"]["model_dir"], "")
         self.assertEqual(cfg["col_tolerance_ratio"], 0.9)
+        self.assertEqual(cfg["ocr"]["engine"], "rapidocr")
 
     def test_normalize_fills_defaults_and_drops_bad_values(self):
         cfg = config_io.normalize({"columns": [{"name": "甲", "type": "bogus"}]})
-        self.assertEqual(cfg["ocr"]["engine"], "dummy")
+        self.assertEqual(cfg["ocr"]["engine"], "rapidocr")
         self.assertEqual(cfg["ocr"]["scales"], [1, 2, 3])
         self.assertEqual(cfg["columns"][0]["type"], "str")
         self.assertEqual(cfg["low_confidence_threshold"], 0.85)
@@ -47,13 +48,22 @@ class TestConfigIO(unittest.TestCase):
         bad_scales["ocr"]["scales"] = []
         self.assertTrue(any("扫描尺度" in e for e in config_io.validate(bad_scales)))
 
-        missing_module = config_io.example_config()
-        missing_module["ocr"]["engine"] = "maaocr"
-        self.assertTrue(any("模块目录" in e for e in config_io.validate(missing_module)))
+        # maaocr now auto-discovers engines/maaocr/, so a blank path is valid.
+        auto_discovery = config_io.example_config()
+        auto_discovery["ocr"]["engine"] = "maaocr"
+        self.assertEqual(config_io.validate(auto_discovery), [])
 
         duplicate = config_io.example_config()
         duplicate["columns"][1]["name"] = duplicate["columns"][0]["name"]
         self.assertTrue(any("重复" in e for e in config_io.validate(duplicate)))
+
+    def test_custom_engine_name_is_preserved(self):
+        cfg = config_io.normalize({
+            "columns": [{"name": "列"}],
+            "ocr": {"engine": "my_plugin"},
+        })
+        self.assertEqual(cfg["ocr"]["engine"], "my_plugin")
+        self.assertEqual(config_io.validate(cfg), [])
 
 
 if __name__ == "__main__":

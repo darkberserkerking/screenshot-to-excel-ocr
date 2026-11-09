@@ -14,7 +14,7 @@ class RapidOCREngine(BaseOCREngine):
             from rapidocr_onnxruntime import RapidOCR
         except ImportError as exc:  # pragma: no cover - optional dependency
             raise RuntimeError(
-                "rapidocr backend requires: pip install -r requirements-ocr.txt"
+                "rapidocr backend requires: pip install -r requirements.txt"
             ) from exc
         self._engine = RapidOCR()
 

@@ -1,0 +1,7 @@
+{
+  "name": "my_ocr",
+  "module": "my_ocr.py",
+  "class": "MyOCR",
+  "kwargs": {},
+  "description": "My custom OCR engine"
+}

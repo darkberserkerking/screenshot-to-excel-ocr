@@ -1,0 +1,28 @@
+"""Template for a custom OCR backend.
+
+Copy this file to engines/my_ocr.py, then create engines/my_ocr.json pointing
+at it. The engine name comes from the JSON, not from this file.
+"""
+
+
+class MyOCR:
+    def __init__(self, **kwargs):
+        # Load your model here. kwargs come from the "kwargs" object in the
+        # plugin declaration, e.g. {"model_dir": "models/my"}.
+        self.options = kwargs
+
+    def recognize(self, image):
+        """Recognise one PIL.Image.
+
+        Return a list of results in any of these shapes:
+            (text, box, score)
+            (box, text, score)
+            {"text": text, "box": box, "score": score}
+
+        ``box`` may be four corner points [(x, y), ...] or a flat rectangle
+        (x1, y1, x2, y2). Coordinates must refer to the image passed in; the
+        pipeline handles multi-scale normalisation afterwards.
+        """
+        return [
+            ("示例文本", [(10, 10), (120, 10), (120, 34), (10, 34)], 0.99),
+        ]

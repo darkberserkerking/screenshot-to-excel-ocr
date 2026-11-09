@@ -39,3 +39,10 @@ Thumbs.db
 # Samples: keep the folder, ignore real screenshots
 samples/*
 !samples/.gitkeep
+
+# Local engines, model weights and plugin declarations stay on this machine.
+# Keep only the documentation and the templates in the repository.
+engines/*
+!engines/README.md
+!engines/.gitkeep
+!engines/*.example

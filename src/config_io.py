@@ -11,7 +11,7 @@ import sys
 from typing import Any, Dict, List
 
 # In a one-file build the shipped example lives in the bundle directory, while
-# user-editable config.json stays next to the executable.
+# user-editable config.json and engines/ stay next to the executable.
 if getattr(sys, "frozen", False):
     APP_DIR = os.path.dirname(os.path.abspath(sys.executable))
     BUNDLE_DIR = getattr(sys, "_MEIPASS", APP_DIR)
@@ -24,16 +24,16 @@ EXAMPLE_PATH = os.path.join(BUNDLE_DIR, "config.example.json")
 LOCAL_PATH = os.path.join(APP_DIR, "config.json")
 
 TYPES = ("str", "int", "float", "date")
-ENGINES = ("dummy", "rapidocr", "maaocr")
+ENGINES = ("dummy", "rapidocr", "maaocr")  # built-ins; plugin names are dynamic
 MODES = ("table", "text_dump")
 
 DEFAULTS: Dict[str, Any] = {
     "ocr": {
-        "engine": "dummy",
+        "engine": "rapidocr",
         "scales": [1, 2, 3],
         "min_score": 0.5,
-        # Local-only paths for the maaocr backend. Kept empty in the shipped
-        # example so no machine-specific path ever lands in the repository.
+        # Optional local paths for the maaocr adapter. Left empty in the
+        # shipped example; auto-discovery uses engines/maaocr/.
         "module_dir": "",
         "model_dir": "",
     },
@@ -82,8 +82,8 @@ def normalize(raw: Any = None) -> Dict[str, Any]:
                 config[key].update(value)
         else:
             config[key] = value
-    if config["ocr"].get("engine") not in ENGINES:
-        config["ocr"]["engine"] = "dummy"
+    # Engine names are intentionally not restricted to the built-in list:
+    # user plugins declared in engines/*.json are valid too.
     if config["output"].get("mode") not in MODES:
         config["output"]["mode"] = "table"
     config["columns"] = [_column(c) for c in (raw.get("columns") or [])]
@@ -147,6 +147,4 @@ def validate(config: Dict[str, Any]) -> List[str]:
     except (TypeError, ValueError, KeyError):
         errors.append("去重网格必须是数字")
 
-    if cfg["ocr"]["engine"] == "maaocr" and not cfg["ocr"].get("module_dir"):
-        errors.append("使用 maaocr 引擎时，必须填写「模块目录」")
     return errors
