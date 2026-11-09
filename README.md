@@ -192,16 +192,18 @@ python -m unittest discover -s tests -v
 ```bash
 pip install pyinstaller
 python -m PyInstaller --onefile --windowed --clean --noconfirm \
-  --name screenshot-to-excel --collect-all customtkinter \
-  --collect-all rapidocr_onnxruntime \
+  --name screenshot-to-excel --icon assets/icon.ico \
+  --collect-all customtkinter --collect-data rapidocr_onnxruntime \
+  --exclude-module matplotlib --exclude-module torch \
+  --exclude-module torchvision --exclude-module onnxscript \
   --add-data "config.example.json;." \
-  --hidden-import src.config_io --hidden-import src.dump \
-  --hidden-import src.pipeline --hidden-import src.ocr.registry \
-  --hidden-import src.ocr.dummy --hidden-import src.ocr.rapidocr \
-  --hidden-import src.ocr.maaocr gui.py
+  --add-data "engines/README.md;engines" \
+  --hidden-import src.ocr.registry --hidden-import src.ocr.rapidocr gui.py
 ```
 
-产物在 `dist/screenshot-to-excel.exe`，运行时没有控制台窗口。
+图标位于 `assets/icon.ico`：透明圆角蓝色卡片，含 16 / 32 / 48 / 64 / 128 / 256 六档尺寸；
+`assets/icon.png` 是 256px 预览图。构建环境若装有 torch 等无关大包，需按上面示例排除，
+否则单文件体积会异常膨胀。产物在 `dist/screenshot-to-excel.exe`，运行时没有控制台窗口。
 
 ## 合规说明
 
