@@ -48,7 +48,7 @@ def _to_records(items: List[OCRItem], config: Dict[str, Any], source: str):
     table, debug = build_table(
         items,
         float(config.get("row_tolerance_ratio", 0.7)),
-        0.9,
+        float(config.get("col_tolerance_ratio", 0.9)),
     )
     records = extract_rows(table, config["columns"], config)
     for record in records:
