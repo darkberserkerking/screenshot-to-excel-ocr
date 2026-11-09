@@ -158,14 +158,24 @@ python -m unittest discover -s tests -v
 测试只依赖核心依赖，覆盖坐标归一化、多尺度投票纠错、文本清洗、类型转换、配置往返与校验、
 双输出模式的 Excel 写出和端到端 demo，不需要图片素材或 OCR 模型。
 
-## 打包为可执行文件（可选）
+## 打包与下载
+
+已发布版本可直接从仓库 **Releases** 下载单文件 exe，双击即用，无需 Python 环境或命令行。
+配置文件 `config.json` 与 `output/` 会生成在 exe 同目录，示例配置随程序一起打包。
+
+从源码自行构建（Windows）：
 
 ```bash
 pip install pyinstaller
-pyinstaller --onefile --name screenshot-to-excel gui.py
+python -m PyInstaller --onefile --windowed --clean --noconfirm \
+  --name screenshot-to-excel --collect-all customtkinter \
+  --add-data "config.example.json;." \
+  --hidden-import src.config_io --hidden-import src.dump \
+  --hidden-import src.pipeline --hidden-import src.ocr.dummy \
+  --hidden-import src.ocr.rapidocr --hidden-import src.ocr.maaocr gui.py
 ```
 
-交付给非技术使用者时，建议同时附上示例配置、一份「使用前必读」和一张运行截图。
+产物在 `dist/screenshot-to-excel.exe`。使用 `--windowed`，运行时没有控制台窗口。
 
 ## 合规说明
 

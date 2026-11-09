@@ -36,7 +36,11 @@ from src.config_io import (ENGINES, EXAMPLE_PATH, LOCAL_PATH, TYPES,
 from src.dump import run_text_dump
 from src.pipeline import run, run_demo
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+# Frozen (PyInstaller) builds must keep user files next to the .exe, not in
+# the temporary extraction directory.
+HERE = (os.path.dirname(os.path.abspath(sys.executable))
+        if getattr(sys, "frozen", False)
+        else os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_INPUT = os.path.join(HERE, "samples")
 DEFAULT_OUTPUT = os.path.join(HERE, "output", "report.xlsx")
 DEMO_OUTPUT = os.path.join(HERE, "output", "demo_report.xlsx")

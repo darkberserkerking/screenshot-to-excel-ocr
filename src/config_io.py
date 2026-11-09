@@ -7,11 +7,21 @@ unit-testable without opening a window.
 import copy
 import json
 import os
+import sys
 from typing import Any, Dict, List
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EXAMPLE_PATH = os.path.join(ROOT, "config.example.json")
-LOCAL_PATH = os.path.join(ROOT, "config.json")
+# In a one-file build the shipped example lives in the bundle directory, while
+# user-editable config.json stays next to the executable.
+if getattr(sys, "frozen", False):
+    APP_DIR = os.path.dirname(os.path.abspath(sys.executable))
+    BUNDLE_DIR = getattr(sys, "_MEIPASS", APP_DIR)
+else:
+    APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    BUNDLE_DIR = APP_DIR
+
+ROOT = APP_DIR
+EXAMPLE_PATH = os.path.join(BUNDLE_DIR, "config.example.json")
+LOCAL_PATH = os.path.join(APP_DIR, "config.json")
 
 TYPES = ("str", "int", "float", "date")
 ENGINES = ("dummy", "rapidocr", "maaocr")
