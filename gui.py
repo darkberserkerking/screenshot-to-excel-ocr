@@ -539,9 +539,19 @@ class App:
 
 
 def main():
-    root = tk.Tk()
-    App(root)
-    root.mainloop()
+    try:
+        root = tk.Tk()
+        App(root)
+        root.mainloop()
+    except Exception:
+        # pythonw.exe has no console, so persist startup errors for diagnosis.
+        import traceback
+        log_dir = os.path.join(HERE, "output")
+        os.makedirs(log_dir, exist_ok=True)
+        with open(os.path.join(log_dir, "startup_error.log"), "w",
+                  encoding="utf-8") as handle:
+            traceback.print_exc(file=handle)
+        raise
 
 
 if __name__ == "__main__":
