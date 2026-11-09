@@ -5,11 +5,13 @@ text box with its source file, confidence and centre coordinate in the original
 image. That is what UI automation needs to locate elements on screen.
 
 Output columns: source file / index / text / confidence / centre X / centre Y /
-scale. Boxes seen at several scales are collapsed to one row by keeping the
-highest-scoring occurrence in a small coordinate grid.
+scale. Boxes seen at several scales are collapsed to one row by spatial
+distance, keeping the highest-scoring occurrence.
 """
 
+import math
 import os
+from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -23,6 +25,12 @@ from .preprocess import iter_images, load_image, multiscale
 HEADERS = ("来源文件", "序号", "识别文本", "置信度", "中心X", "中心Y", "尺度")
 HEADER_FILL = PatternFill("solid", fgColor="E8EEF7")
 REVIEW_FILL = PatternFill("solid", fgColor="FFF2CC")
+
+# Boxes of the same text recognised at 1x/2x/3x drift by a few pixels even
+# after coordinate normalisation. The configured grid is a base unit; the real
+# merge radius is this multiple of it, so boundary cases (e.g. 647.0 vs 641.5
+# with grid=12) are still merged.
+MERGE_RADIUS_FACTOR = 1.5
 
 Item = Tuple[str, Any, float]          # (source filename, normalised OCRItem, scale)
 Row = Tuple[str, str, float, float, float, float]  # (source, text, score, cx, cy, scale)
@@ -46,22 +54,33 @@ def collect_items(folder: str, engine_name: str = "dummy",
 
 
 def deduplicate(items: Sequence[Item], grid: float = 12.0) -> List[Row]:
-    """Collapse multi-scale duplicates, then sort by file / y / x."""
-    grid = max(1.0, float(grid))
-    best: Dict[Tuple[str, str, int, int], Item] = {}
+    """Collapse multi-scale duplicates by distance, then sort by file / y / x.
+
+    Grouping by ``round(cx / grid)`` buckets used to miss duplicates whenever
+    two centres landed on opposite sides of a bucket boundary, even 0.3px
+    apart. Here boxes are grouped by ``(source, text)``, processed from the
+    highest score down, and any box whose centre is within the merge radius of
+    an already kept box is dropped. Genuine repeated labels further apart are
+    preserved.
+    """
+    radius = max(1.0, float(grid)) * MERGE_RADIUS_FACTOR
+    groups: Dict[Tuple[str, str], List[Tuple[Any, float]]] = defaultdict(list)
     for source, item, scale in items:
         item = item.normalized()
-        cx, cy = item.center
-        key = (source, item.text, round(cx / grid), round(cy / grid))
-        current = best.get(key)
-        if current is None or item.score > current[1].score:
-            best[key] = (source, item, scale)
+        groups[(source, item.text)].append((item, scale))
 
     rows: List[Row] = []
-    for source, item, scale in best.values():
-        cx, cy = item.center
-        rows.append((source, item.text, item.score,
-                     round(cx, 1), round(cy, 1), scale))
+    for (source, text), group in groups.items():
+        group.sort(key=lambda pair: pair[0].score, reverse=True)
+        kept: List[Tuple[float, float]] = []
+        for item, scale in group:
+            cx, cy = item.center
+            if any(math.hypot(cx - kx, cy - ky) <= radius
+                   for kx, ky in kept):
+                continue
+            kept.append((cx, cy))
+            rows.append((source, text, item.score,
+                         round(cx, 1), round(cy, 1), scale))
     rows.sort(key=lambda r: (r[0], r[4], r[3]))
     return rows
 
@@ -144,6 +163,7 @@ def run_text_dump(input_dir: str, output_path: str, config: Dict[str, Any],
         "去重后条目": stats.rows,
         "低置信条目": stats.flagged_rows,
         "去重网格(px)": grid,
+        "实际合并半径(px)": round(grid * MERGE_RADIUS_FACTOR, 1),
     }
     write_dump(rows, output_path, threshold, meta)
     return stats
